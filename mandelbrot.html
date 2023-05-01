@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<!--
+	Tracé de la fractale de Mandelbrot en Javascript 
+	
+	Fonctionalités
+	| O |	javascript simple, sans librairie requise
+	|   |	<link rel='stylesheet' type='text/css' href='css/mandelbrot.css'>
+	|   |	<script src='javascript/mandelbrot.js'></script>
+	|   |	
+	| O |	Calcul d'une durée raisonnable < 1000 ms
+	|   |	
+	| O |	Sélection parmi plusieurs fonctions génératrices usuelles
+	| O |	Sélection parmi plusieurs fonctions polynomiales de la forme z -> z^N + c^M
+	| O |	Sélection parmi plusieurs fonctions trigonométriques
+	| O |	Sélection parmi plusieurs fonctions trigonométriques hyperboliques
+	|   |	
+	| . |	Sélection d’affixes ( 2016-04-13 ) pour tracer leur ensemble de Julia associé :
+	| . |	•  0.1041016 + i* 0.5074687
+	| . |	•  0.1415078 + i*-0.4900313
+	| . |	• -0.8435234 + i* 0.0024844
+	| . |	• -0.1265703 + i*-0.552375
+	| . |	• -0.1390391 + i*-0.7955156
+	|   |	
+	| O |	Sélection du nombre d'itérations
+	| O |	Sélection du nombre de pixels
+	| O |	Sélection du facteur de grossissement
+	|   |	
+	| O |	Sélection du type de palette
+	| O |	Sélection des deux couleurs [ Mandelbrot | Extérieur ]
+	| O |	Sélection des trois couleurs [ Mandelbrot | Adhérence | Infini ]
+	|   |	
+	| O |	( clic ) Agrandissement de la figure / Réduction de la zone de calcul ( zoom avant )
+	|   |	
+	| O |	( Maj + clic ) Rétrécissement de la figure / Agrandissement de la zone de calcul ( zoom arrière )
+	|   |	
+	| O |	( Ctrl + clic ) Tracé de l'ensemble de Julia associé au point sélectionné / Retour à l'ensemble de Mandelbrot	
+	| O |	( Alt  + clic ) Tracé de l'ensemble de Julia associé au point sélectionné / Retour à l'ensemble de Mandelbrot	
+	|   |	
+	| O |	Affichage de la fonction génératrice
+	| O |	Affichage des coordonnées de la zone de calcul
+	| O |	Affichage du temps de calcul
+ -->
+<html>
+	<head>
+		<title>Fractale de Mandelbrot</title>
+		<style>
+			.Titre{													text-align: center;	font-size: 140%;							}
+			.Bloc{		border: solid 1px black;							float: left;						background-color: #ccc;		}
+			.Bouton{		padding: 10px 40px;	width:  60%;	margin-top: 5px;	text-align: left;	font-size: 100%;							}
+			.BoutonInactif{padding: 10px 40px;	width:  60%;	margin-top: 5px;	text-align: left;	font-size: 100%;	background-color: #555555;	}
+			.Menu{		padding: 10px 20px;	width:  50%;	margin-top: 5px;	text-align: center;	font-size: 100%;							}
+			.MenuEntiers{	padding: 10px 20px;	width:  15%;	margin: 0px;		text-align: center;	font-size: 100%;							}
+			.Bouton3{		padding: 10px 20px;	width: 166px;	margin-top: 5px;	text-align: center;	font-size:  80%;							}
+			.Bouton4{		padding: 10px 20px;	width: 125px;	margin-top: 5px;	text-align: center;	font-size:  80%;							}
+			.Bouton5{		padding: 10px 20px;	width: 100px;	margin-top: 5px;	text-align: center;	font-size:  80%;							}
+			.Bouton6{		padding: 10px 20px;	width:  83px;	margin-top: 5px;	text-align: center;	font-size:  80%;							}
+			#Commandes{																font-size: 100%;							}
+			#Informations{																font-size: 100%;							}
+		</style>
+		<script>
+			var FRACTALE =					{}
+			
+			initialiser()
+			
+			// Fonctions Modèle
+			function initialiser() {
+				FRACTALE.listeFonctions =    [['z2c',	'z^2 + c'						],	
+										['czz2',	'c.(1/2 - 2.z^2)'				],	
+										['z2zc',	'z^2 + z + c'					],	
+										['z2c3d',	'z^2 + c^3 - &delta;'			],	
+										['z2c963','z^2 + (c^3 + 0,7 - 0,2i)^3 + i'	],	
+										['Gauss',	'exp(-z^2) + c'				]];	// ? 5ème fonction dans le pavé hyperbolique ?
+				
+				FRACTALE.listeFonctions3 =	['Cos', 'Sin', 'Tan', 'ExpI'];
+				FRACTALE.listeFonctions4 =	['Ch',  'Sh',  'Th',  'Exp'];
+				FRACTALE.listeOperations =	[1, 2, 3, 4];							//	(.)	(+)	.	+
+				
+				FRACTALE.mandelbrot =		true
+				
+				FRACTALE.typeFonction =		1
+				FRACTALE.codeFonction =		'z2c'
+				FRACTALE.conjugaison =		0
+				FRACTALE.conjugaisonC =		0
+				FRACTALE.inversion =		0
+				FRACTALE.inversionC =		0
+				
+				//FRACTALE.rayonDivergence =	2		// Toutes les fonctions polynomiales
+				//FRACTALE.rayonDivergence =	5		// cos(z) + 1/c ? toutes les fonction
+				//FRACTALE.rayonDivergence =	200		// sh(z) + 1/c^2
+				FRACTALE.rayonDivergence =	2
+				
+				FRACTALE.maximumIterations =	300
+				FRACTALE.nombrePixels =		600
+				FRACTALE.grossissement =		4
+				
+				FRACTALE.typeNuancier =		1
+				FRACTALE.nuancier5 =	    [[0,		0,		0	],	// 0: Noir
+										[255,	0,		0	],	// 1: Rouge
+										[255,	255,		0	],	// 2: Jaune
+										[0,		0,		255	],	// 3: Bleu
+										[255,	255,		255	]];	// 4: Blanc
+				FRACTALE.nuancier53 =	    ['#000000',				// 0: Noir
+										'#ff0000',				// 1: Rouge
+										'#ffff00',				// 2: Jaune
+										'#0000ff',				// 3: Bleu
+										'#ffffff'	];				// 4: Blanc
+				FRACTALE.couleurM =			0						// Noir
+				FRACTALE.couleurF =			1						// Rouge
+				FRACTALE.couleurE =			4						// Blanc
+				
+				FRACTALE.cxMin =		   - 2
+				FRACTALE.cxMax =			2
+				FRACTALE.cyMin =		   - 2
+				FRACTALE.cyMax =			2
+				
+				FRACTALE.cxJulia =			0
+				FRACTALE.cyJulia =			0
+				
+				FRACTALE.zxMin =		   - 2
+				FRACTALE.zxMax =			2
+				FRACTALE.zyMin =		   - 2
+				FRACTALE.zyMax =			2
+				
+				FRACTALE.tempsCalcul =		0
+			}
+			function donnerParametre(typeFonction, codeFonction, nomParametre) {
+				libelle =					'z &#8614; ';
+				degreZ =					0;
+				degreC =					0;
+				fonction =				0;
+				operationC =				0;
+				rayonD =					2;
+				
+				switch ( typeFonction ) {
+				case 2:
+					switch ( codeFonction ) {// d°z & d°c
+					case 'z2c':	degreZ = 2;	degreC = 1;		break // z^2 + c
+					case 'z3c':	degreZ = 3;	degreC = 1;		break // z^3 + c
+					case 'z4c':	degreZ = 4;	degreC = 1;		break // z^4 + c
+					case 'z5c':	degreZ = 5;	degreC = 1;		break // z^5 + c
+					case 'z6c':	degreZ = 6;	degreC = 1;		break // z^6 + c
+					
+					case 'z2c2':	degreZ = 2;	degreC = 2;		break // z^2 + c^2
+					case 'z3c2':	degreZ = 3;	degreC = 2;		break // z^3 + c^2
+					case 'z4c2':	degreZ = 4;	degreC = 2;		break // z^4 + c^2
+					case 'z5c2':	degreZ = 5;	degreC = 2;		break // z^5 + c^2
+					case 'z6c2':	degreZ = 6;	degreC = 2;		break // z^6 + c^2
+					
+					case 'z2c3':	degreZ = 2;	degreC = 3;		break // z^2 + c^3
+					case 'z3c3':	degreZ = 3;	degreC = 3;		break // z^3 + c^3
+					case 'z4c3':	degreZ = 4;	degreC = 3;		break // z^4 + c^3
+					case 'z5c3':	degreZ = 5;	degreC = 3;		break // z^5 + c^3
+					case 'z6c3':	degreZ = 6;	degreC = 3;		break // z^6 + c^3
+					
+					case 'z2c4':	degreZ = 2;	degreC = 4;		break // z^2 + c^4
+					case 'z3c4':	degreZ = 3;	degreC = 4;		break // z^3 + c^4
+					case 'z4c4':	degreZ = 4;	degreC = 4;		break // z^4 + c^4
+					case 'z5c4':	degreZ = 5;	degreC = 4;		break // z^5 + c^4
+					case 'z6c4':	degreZ = 6;	degreC = 4;		break // z^6 + c^4
+					
+					case 'z2c5':	degreZ = 2;	degreC = 5;		break // z^2 + c^5
+					case 'z3c5':	degreZ = 3;	degreC = 5;		break // z^3 + c^5
+					case 'z4c5':	degreZ = 4;	degreC = 5;		break // z^4 + c^5
+					case 'z5c5':	degreZ = 5;	degreC = 5;		break // z^5 + c^5
+					case 'z6c5':	degreZ = 6;	degreC = 5;		break // z^6 + c^5
+					}
+					break
+				case 3:
+					switch ( codeFonction ) {// f(z) & opération c
+					case 'Cos1':	fonction = 1;	operationC = 1;	break // cos(c.z)
+					case 'Cos2':	fonction = 1;	operationC = 2;	break // cos(z + c)
+					case 'Cos3':	fonction = 1;	operationC = 3;	break // c.cos(z)
+					case 'Cos4':	fonction = 1;	operationC = 4;	break // cos(z) + c
+					
+					case 'Sin1':	fonction = 2;	operationC = 1;	break // sin(c.z)
+					case 'Sin2':	fonction = 2;	operationC = 2;	break // sin(z + c)
+					case 'Sin3':	fonction = 2;	operationC = 3;	break // c.sin(z)
+					case 'Sin4':	fonction = 2;	operationC = 4;	break // sin(z) + c
+					
+					case 'Tan1':	fonction = 3;	operationC = 1;	break // tan(c.z)
+					case 'Tan2':	fonction = 3;	operationC = 2;	break // tan(z + c)
+					case 'Tan3':	fonction = 3;	operationC = 3;	break // c.tan(z)
+					case 'Tan4':	fonction = 3;	operationC = 4;	break // tan(z) + c
+					
+					case 'ExpI1':	fonction = 4;	operationC = 1;	break // exp(i.c.z)
+					case 'ExpI2':	fonction = 4;	operationC = 2;	break // exp(i.z + c)
+					case 'ExpI3':	fonction = 4;	operationC = 3;	break // c.exp(i.z)
+					case 'ExpI4':	fonction = 4;	operationC = 4;	break // exp(i.z) + c
+					}
+					break
+				case 4:
+					switch ( codeFonction ) {// f(z) & opération c
+					case 'Ch1':	fonction = 1;	operationC = 1;	break // ch(c.z)
+					case 'Ch2':	fonction = 1;	operationC = 2;	break // ch(z + c)
+					case 'Ch3':	fonction = 1;	operationC = 3;	break // c.ch(z)
+					case 'Ch4':	fonction = 1;	operationC = 4;	break // ch(z) + c
+					
+					case 'Sh1':	fonction = 2;	operationC = 1;	break // sh(c.z)
+					case 'Sh2':	fonction = 2;	operationC = 2;	break // sh(z + c)
+					case 'Sh3':	fonction = 2;	operationC = 3;	break // c.sh(z)
+					case 'Sh4':	fonction = 2;	operationC = 4;	break // sh(z) + c
+					
+					case 'Th1':	fonction = 3;	operationC = 1;	break // th(c.z)
+					case 'Th2':	fonction = 3;	operationC = 2;	break // th(z + c)
+					case 'Th3':	fonction = 3;	operationC = 3;	break // c.th(z)
+					case 'Th4':	fonction = 3;	operationC = 4;	break // th(z) + c
+					
+					case 'Exp1':	fonction = 4;	operationC = 1;	break // exp(c.z)
+					case 'Exp2':	fonction = 4;	operationC = 2;	break // exp(z + c)
+					case 'Exp3':	fonction = 4;	operationC = 3;	break // c.exp(z)
+					case 'Exp4':	fonction = 4;	operationC = 4;	break // exp(z) + c
+					}
+					break
+				}
+				
+				switch ( typeFonction ) {
+				case 1:
+					switch ( codeFonction ) {
+					case 'z2c':	libelle += 'z<sup>2</sup> + c';					break // z^2 + c
+					
+					case 'czz2':	libelle += 'c.(&frac12; - 2.z<sup>2</sup>)';			break // c.z.(1 - z)
+					
+					case 'z2zc':	libelle += 'z<sup>2</sup> + z + c';				break // z^2 + z + c
+					
+					case 'z2c3d':	libelle += 'z<sup>2</sup> + c<sup>3</sup> - &delta;';	break // z^2 + c^3 - δ avec δ≈-1.401155 point de Feigenbaum
+					
+					case 'z2c963':	libelle += 'z<sup>2</sup> + (c<sup>3</sup> + 0,7 - 0,2i)<sup>3</sup> + i;';
+																			break // z^2 + (c^3 + 0,7 - 0,2i)^3 + i
+					
+					case 'Gauss':	libelle += 'e<sup>-z<sup>2</sup></sup> + c';			break // exp(- z^2) + c
+					
+					default:		libelle =	'inconnue';
+					}
+					break
+				case 2:
+					motC =				FRACTALE.inversionC?'1/':'';
+					motC +=				'c';
+					motC +=				FRACTALE.conjugaisonC?'*':'';
+					motC +=				(FRACTALE.degreC > 1)?('<sup>' + FRACTALE.degreC.toString() + '</sup>'):'';
+					
+					motZ =				FRACTALE.inversion?'1/':'';
+					motZ +=				'z';
+					motZ +=				FRACTALE.conjugaison?'*':'';
+					motZ +=				(FRACTALE.degre > 1)?('<sup>' + FRACTALE.degre.toString() + '</sup>'):'';
+					
+					libelle +=			motZ + ' + ' + motC;
+					break
+				case 3:
+				case 4:
+					motC =				FRACTALE.inversionC?'1/':'';
+					motC +=				'c';
+					motC +=				FRACTALE.conjugaisonC?'*':'';
+					
+					motZ =				FRACTALE.inversion?'1/':'';
+					motZ +=				'z';
+					motZ +=				FRACTALE.conjugaison?'*':'';
+					
+					if ( typeFonction == 3 ) {
+						switch ( FRACTALE.fonction ) {
+						case 1: motF =		'cos(';	break
+						case 2: motF =		'sin(';	break
+						case 3: motF =		'tan(';	break
+						case 4: motF =		'exp(i.';	break
+						}
+					}
+					if ( typeFonction == 4 ) {
+						switch ( FRACTALE.fonction ) {
+						case 1: motF =		'ch(';	break
+						case 2: motF =		'sh(';	break
+						case 3: motF =		'th(';	break
+						case 4: motF =		'exp(';	break
+						}
+					}
+					
+					switch ( FRACTALE.operationC ) {
+					case 1: libelle +=		motF + motC + '.' + motZ + ')';			break
+					case 2: libelle +=		motF +              motZ + '+' + motC + ')';	break
+					case 3: libelle +=		motC + '.' + motF + motZ + ')';			break
+					case 4: libelle +=		             motF + motZ + ') + ' + motC;	break
+					}
+					break
+				}
+				
+				switch ( nomParametre ) {
+				case 'libelle':	parametre = libelle;	break
+				case 'degre':		parametre = degreZ;		break
+				case 'degreC':		parametre = degreC;		break
+				case 'fonction':	parametre = fonction;	break
+				case 'operationC':	parametre = operationC;	break
+				case 'rayon':		parametre = rayonD;		break
+				}
+				
+				return parametre
+			}
+			function donnerParametreDynamique(typeFonction, argument1, argument2, nomParametre) {
+				code =					'?';
+				libelle =					'?';
+				
+				switch ( typeFonction ) {
+				case 2:
+					degreZ =				argument1;
+					degreC =				argument2;
+					break
+				case 3:
+				case 4:
+					fonction =			argument1;
+					operationC =			argument2;
+					break
+				}
+				
+				switch ( typeFonction ) {
+				case 2:
+					code =				'z';
+					if ( degreZ != 1 ) { code +=	degreZ.toString() }
+					code +=				'c';
+					if ( degreC != 1 ) { code += 	degreC.toString() }
+					
+					libelle =				'z';
+					if ( degreZ != 1 ) { libelle += '<sup>' + degreZ.toString() + '</sup>' }
+					libelle +=		 	' + c';
+					if ( degreC != 1 ) { libelle += '<sup>' + degreC.toString() + '</sup>' }
+					break
+				case 3: 
+					code =				FRACTALE.listeFonctions3[argument1];
+					code +=				FRACTALE.listeOperations[argument2].toString();
+					
+					libelle =				FRACTALE.listeFonctions3[fonction];
+					switch ( operationC ) {
+					case 0: libelle =		libelle + '(c.z)';			break
+					case 1: libelle =		libelle + '(z + c)';		break
+					case 2: libelle =		'c.' + libelle + '(z)';		break
+					case 3: libelle =		libelle + '(z) + c';		break
+					}
+					break
+				case 4: 
+					code =				FRACTALE.listeFonctions4[argument1];
+					code +=				FRACTALE.listeOperations[argument2].toString();
+					
+					libelle =				FRACTALE.listeFonctions4[fonction];
+					switch ( operationC ) {
+					case 0: libelle =		libelle + '(c.z)';			break
+					case 1: libelle =		libelle + '(z + c)';		break
+					case 2: libelle =		'c.' + libelle + '(z)';		break
+					case 3: libelle =		libelle + '(z) + c';		break
+					}
+					break
+				}				
+				
+				switch (nomParametre) {
+				case 'code':		parametre = code;			break
+				case 'libelle':	parametre = libelle;		break
+				}
+				
+				return parametre
+			}
+			
+			function tracerFractale(type, code) {
+				document.getElementById('Canevas').width = FRACTALE.nombrePixels;
+				document.getElementById('Canevas').height = FRACTALE.nombrePixels;
+				
+				context =					document.getElementById('Canevas').getContext('2d');
+				couleurs =				context.createImageData(FRACTALE.nombrePixels, FRACTALE.nombrePixels);
+				
+				tempsDebut =				new Date().getTime()
+				
+				for ( var i = 0; i < FRACTALE.nombrePixels; i++ ) {
+					for ( var j = 0; j < FRACTALE.nombrePixels; j++ ) {
+						if ( FRACTALE.mandelbrot ) {
+							c =			[FRACTALE.cxMin + ( FRACTALE.cxMax - FRACTALE.cxMin )*i/FRACTALE.nombrePixels, 
+										 FRACTALE.cyMin + ( FRACTALE.cyMax - FRACTALE.cyMin )*j/FRACTALE.nombrePixels];
+							
+							z =			FRACTALE.inversion?c:[0, 0];
+						}
+						if ( !FRACTALE.mandelbrot ) {
+							c =			[FRACTALE.cxJulia, FRACTALE.cyJulia];
+							
+							z =			[FRACTALE.zxMin + ( FRACTALE.zxMax - FRACTALE.zxMin )*i/FRACTALE.nombrePixels,
+										 FRACTALE.zyMin + ( FRACTALE.zyMax - FRACTALE.zyMin )*j/FRACTALE.nombrePixels];
+						}
+						
+						iterations =		0;
+						echappement =		0;
+						
+						do {	
+							z1 =			iterer(type, code, z, c);
+							module =		Math.sqrt(z1[0]*z1[0] + z1[1]*z1[1]);
+							
+							if ( module > FRACTALE.rayonDivergence ) { echappement = iterations }
+							iterations++;
+							
+							z =			z1;
+						}
+						while ( ( iterations < FRACTALE.maximumIterations ) && ( module < FRACTALE.rayonDivergence ) )
+						
+						donnerCouleur(i, j, echappement, module)
+					}
+				}
+				context.putImageData(couleurs, 0, 0)
+				
+				tempsFin =				new Date().getTime()
+				FRACTALE.tempsCalcul =		tempsFin - tempsDebut;
+			}
+			function iterer(typeFonction, codeFonction, z, c) {
+				x =						z[0];
+				y =						z[1];
+				
+				cx =						c[0];
+				cy =						c[1];
+				
+				switch ( typeFonction ) {
+				case 1:					// Fonction prédéfinies
+					switch ( codeFonction ) {
+					case 'z2c':			// z^2 + c
+						x1 =				cx + x*x - y*y;
+						y1 =				cy + 2*x*y;
+						break
+					case 'czz2':			// c.( 1/2 - 2.z^2 )
+						x1 =				cx*(1/2 - 2*x*x + 2*y*y) + cy*4*x*y;
+						y1 =				cy*(1/2 - 2*x*x + 2*y*y) - cx*4*x*y;
+						break
+					case 'z2zc':			// z^2 + z + c
+						x1 =				cx + x + x*x - y*y;
+						y1 =				cy + y + 2*x*y;
+						break
+					case 'z2c3d':			// z^2 + c^3 - δ avec δ≈-1.401155 point de Feigenbaum
+						x1 =				x*x - y*y + cx*cx*cx - 3*cx*cy*cy + 1.401155;
+						y1 =				2*x*y +     3*cx*cx*cy - cy*cy*cy;
+						break
+					case 'z2c963':			// z^3 + ( c + 0.7 - 0.2i )^3 + i
+						cx =				cx + 0.7;
+						cy =				cy - 0.2;
+						cx1 =			cx*cx*cx - 3*cx*cy*cy;
+						cy1 =			3*cx*cx*cy - cy*cy*cy;
+						x1 =				cx1 +     x*x - y*y;
+						y1 =				cy1 + 1 + 2*x*y;
+						break
+					case 'Gauss':			// exp(- z^2) + c
+						x1 =				cx + Math.exp(y*y - x*x)*Math.cos(2*x*y);
+						y1 =				cy - Math.exp(y*y - x*x)*Math.sin(2*x*y);
+						break
+					case 'znc':			// z^n + c
+						//if (mod == 0) {arg = 0} else {arg = Math.atan(y/x)} ! RALENTIT CALCUL !
+						mod =			Math.sqrt(x*x + y*y);
+						//arg =			Math.atan(y/x);
+						arg =			Math.asin(y/mod);
+						x1 =				cx + Math.pow(mod, n)*Math.cos(n*arg);
+						y1 =				cy + Math.pow(mod, n)*Math.sin(n*arg);
+						break
+					}
+					break
+				case 2:					// Fonction polynômiales ( et rationelles )
+					if ( FRACTALE.conjugaison ) {
+						y =				- y;
+					}
+					if ( FRACTALE.inversion ) {
+						D =				x*x + y*y;
+						x =				  x/D;
+						y =				- y/D;
+					}
+					if ( FRACTALE.conjugaisonC ) {
+						cy =				- cy;
+					}
+					if ( FRACTALE.inversionC ) {
+						D =				cx*cx + cy*cy;
+						cx =				  cx/D;
+						cy =				- cy/D;
+					}
+					switch ( FRACTALE.degre ) {
+					case 2:
+						x1 =				x*x - y*y;
+						y1 =				2*x*y;
+						break
+					case 3:
+						x1 =				x*x*x - 3*x*y*y;
+						y1 =				3*x*x*y - y*y*y;
+						break
+					case 4:
+						x1 =				Math.pow(x,4) - 6*x*x*y*y + Math.pow(y, 4);
+						y1 =				4*Math.pow(x,3)*y - 4*x*Math.pow(y,3);
+						break
+					case 5:
+						x1 =				Math.pow(x,5) - 10*Math.pow(x,3)*y*y + 5*x*Math.pow(y, 4);
+						y1 =				5*Math.pow(x,4)*y - 10*x*x*Math.pow(y,3) + Math.pow(y, 5);
+						break
+					case 6:
+						x1 =				Math.pow(x,6) - 15*Math.pow(x,4)*y*y + 15*x*x*Math.pow(y, 4) - Math.pow(y,6);
+						y1 =				6*Math.pow(x,5)*y - 20*Math.pow(x,3)*Math.pow(y,3) + 6*x*Math.pow(y, 5);
+						break
+					}
+					switch ( FRACTALE.degreC ) {
+					case 1:
+						cx1 =			cx;
+						cy1 =			cy;
+						break
+					case 2:
+						cx1 =			cx*cx - cy*cy;
+						cy1 =			2*cx*cy;
+						break
+					case 3:
+						cx1 =			cx*cx*cx - 3*cx*cy*cy;
+						cy1 =			3*cx*cx*cy - cy*cy*cy;
+						break
+					case 4:
+						cx1 =			Math.pow(cx,4) - 6*cx*cx*cy*cy + Math.pow(cy, 4);
+						cy1 =			4*Math.pow(cx,3)*cy - 4*cx*Math.pow(cy,3);
+						break
+					case 5:
+						cx1 =			Math.pow(cx,5) - 10*Math.pow(cx,3)*cy*cy + 5*cx*Math.pow(cy, 4);
+						cy1 =			5*Math.pow(cx,4)*cy - 10*cx*cx*Math.pow(cy,3) + Math.pow(cy, 5);
+						break
+					}
+					
+					x1 =					x1 + cx1;
+					y1 =					y1 + cy1;
+					break
+				case 3:					// Fonctions trigonométriques complexes
+					if ( FRACTALE.conjugaison ) {
+						y =				   - z[1];
+					}
+					if ( FRACTALE.inversion ) {
+						D =				x*x + y*y;
+						x =				  x/D;
+						y =				- y/D;
+					}
+					if ( FRACTALE.conjugaisonC ) {
+						cy =				   - cy[1];
+					}
+					if ( FRACTALE.inversionC ) {
+						D =				cx*cx + cy*cy;
+						cx =				  cx/D;
+						cy =				- cy/D;
+					}
+					switch ( FRACTALE.operationC ) {
+					case 1:				// f(c.z)
+						xTemp =			cx*x - cy*y;
+						y =				cy*x + cx*y;
+						x =				xTemp;
+						break
+					case 2:				// f(z + c)
+						x =				x + cx;
+						y =				y + cy;
+						break
+					}			
+					switch ( FRACTALE.fonction ) {
+					case 1:				// cos(z) = ch(y)*cos(x) - i*sh(y)*sin(x)
+						x1 =				  Math.cos(x)*Math.cosh(y);
+						y1 =				- Math.sin(x)*Math.sinh(y);
+						break
+					case 2:				// sin(z) = ch(y)*sin(x) + i*sh(y)*cos(x)
+						x1 =				Math.sin(x)*Math.cosh(y);
+						y1 =				Math.cos(x)*Math.sinh(y);
+						break
+					case 3:				// tan(z)
+						D =				1 + Math.tan(x)*Math.tan(x)*Math.tanh(y)*Math.tanh(y);
+						x1 =				  Math.tan(x)/Math.cosh(y)/Math.cosh(y)/D;
+						y1 =				- Math.tanh(y)/Math.cos(x)/Math.cos(x)/D;
+						break
+					case 4:				// exp(i.z)
+						x1 =				Math.exp(- y)*Math.cos(x);
+						y1 =				Math.exp(- y)*Math.sin(x);
+						break
+					}
+					switch ( FRACTALE.operationC ) {
+					case 3:				// c.f(z)
+						xTemp =			cx*x1 - cy*y1;
+						y1 =				cy*x1 + cx*y1;
+						x1 =				xTemp;
+						break
+					case 4:				// f(z) + c
+						x1 =				x1 + cx;
+						y1 =				y1 + cy;				
+						break
+					}
+					break
+				case 4:					// Fonctions hyperboliques complexes
+					if ( FRACTALE.conjugaison ) {
+						y =				   - z[1];
+					}
+					if ( FRACTALE.inversion ) {
+						D =				x*x + y*y;
+						x =				  x/D;
+						y =				- y/D;
+					}
+					if ( FRACTALE.conjugaisonC ) {
+						cy =				   - cy[1];
+					}
+					if ( FRACTALE.inversionC ) {
+						D =				cx*cx + cy*cy;
+						cx =				  cx/D;
+						cy =				- cy/D;
+					}
+					switch ( FRACTALE.operationC ) {
+					case 1:				// f(c.z)
+						xTemp =			cx*x - cy*y;
+						y =				cy*x + cx*y;
+						x =				xTemp;
+						break
+					case 2:				// f(z + c)
+						x =				x + cx;
+						y =				y + cy;
+						break
+					}			
+					switch ( FRACTALE.fonction ) {
+					case 1:				// ch(z) =  ch(x)*cos(y) + i*sh(x)*sin(y)
+						x1 =				Math.cosh(x)*Math.cos(y);
+						y1 =				Math.sinh(x)*Math.sin(y);
+						break
+					case 2:				// sh(z) =  sh(x)*cos(y) + i*ch(x)*sin(y)
+						x1 =				Math.sinh(x)*Math.cos(y);
+						y1 =				Math.cosh(x)*Math.sin(y);
+						break
+					case 3:				// th(z) ! A VERIFIER !
+						D =				1 + Math.tanh(x)*Math.tanh(x)*Math.tan(y)*Math.tan(y);
+						x1 =				Math.tanh(x)/Math.cos(y)/Math.cos(y)/D;
+						y1 =				Math.tan(y)/Math.cosh(x)/Math.cosh(x)/D;
+					case 4:				// exp(z)
+						x1 =				Math.exp(x)*Math.cos(y);
+						y1 =				Math.exp(x)*Math.sin(y);
+						break
+					}
+					switch ( FRACTALE.operationC ) {
+					case 3:				// c.f(z)
+						xTemp =			cx*x1 - cy*y1;
+						y1 =				cy*x1 + cx*y1;
+						x1 =				xTemp;
+						break
+					case 4:				// f(z) + c
+						x1 =				x1 + cx;
+						y1 =				y1 + cy;				
+						break
+					}
+					break
+				}
+				
+				return [x1, y1]
+			}
+			
+			// Fonctions Vues
+			function donnerCouleur(i, j, echappement, module) {
+				let m =					4*(i + FRACTALE.nombrePixels*j);
+				
+				if ( echappement == 0 ) {	// Intérieur de M | Intérieur de J(c)
+						rouge =			FRACTALE.nuancier5[FRACTALE.couleurM][0];
+						vert =			FRACTALE.nuancier5[FRACTALE.couleurM][1];
+						bleu =			FRACTALE.nuancier5[FRACTALE.couleurM][2];
+				} else {
+					switch ( FRACTALE.typeNuancier ) {
+					case 1:				// Palette cyclique
+						rouge =			( 3 * echappement) % 256;
+						vert =			( 1 * echappement) % 256;
+						bleu =			(10 * echappement) % 256;
+						break
+					case 2:				// Palette bicolore
+						rouge =			FRACTALE.nuancier5[FRACTALE.couleurF][0];
+						vert =			FRACTALE.nuancier5[FRACTALE.couleurF][1];
+						bleu =			FRACTALE.nuancier5[FRACTALE.couleurF][2];
+						break
+					case 3:				// Palette tricolore
+						rouge =			(FRACTALE.nuancier5[FRACTALE.couleurF][0] - FRACTALE.nuancier5[FRACTALE.couleurE][0])*echappement;
+						vert =			(FRACTALE.nuancier5[FRACTALE.couleurF][1] - FRACTALE.nuancier5[FRACTALE.couleurE][1])*echappement;
+						bleu =			(FRACTALE.nuancier5[FRACTALE.couleurF][2] - FRACTALE.nuancier5[FRACTALE.couleurE][2])*echappement;
+						
+						rouge +=			FRACTALE.maximumIterations*FRACTALE.nuancier5[FRACTALE.couleurE][0] - FRACTALE.nuancier5[FRACTALE.couleurF][0];
+						vert +=			FRACTALE.maximumIterations*FRACTALE.nuancier5[FRACTALE.couleurE][1] - FRACTALE.nuancier5[FRACTALE.couleurF][1];
+						bleu +=			FRACTALE.maximumIterations*FRACTALE.nuancier5[FRACTALE.couleurE][2] - FRACTALE.nuancier5[FRACTALE.couleurF][2];
+						
+						rouge =			Math.floor(rouge/(FRACTALE.maximumIterations - 1));
+						vert =			Math.floor(vert /(FRACTALE.maximumIterations - 1));
+						bleu =			Math.floor(bleu /(FRACTALE.maximumIterations - 1));
+						break
+					default:				// L'écran bleu de la mort
+						rouge =			0;
+						vert =			0;
+						bleu =			255;
+					}
+				}
+				couleurs.data[m + 0] =		rouge;
+				couleurs.data[m + 1] =		vert;
+				couleurs.data[m + 2] =		bleu;
+				couleurs.data[m + 3] =		255;
+			}
+			
+			// Fonctions Contrôleurs
+			function initialiserInterface() {
+				document.getElementById('Canevas').height =				FRACTALE.nombrePixels;
+				document.getElementById('Canevas').width =				FRACTALE.nombrePixels;
+				
+				let menu1 =										document.getElementById('Fonctions');
+				for ( var l = 0; l < FRACTALE.listeFonctions.length; l++ ) {
+					let choix =									document.createElement('OPTION');
+					
+					choix.value =									FRACTALE.listeFonctions[l][0];
+					choix.innerHTML =								FRACTALE.listeFonctions[l][1];
+					if ( l == 0 ) {
+						choix.selected =							'selected';
+					}
+					
+					menu1.appendChild(choix);
+				}
+				
+				document.getElementById('Rayons').value =				FRACTALE.rayonDivergence;
+				document.getElementById('Iterations').value =			FRACTALE.maximumIterations;
+				document.getElementById('Taille').value =				FRACTALE.nombrePixels;
+				document.getElementById('Grossissement').value =			FRACTALE.grossissement;
+				
+				changerTypeFonction(FRACTALE.typeFonction)
+				
+				let table2 =										document.getElementById('Fonctions2');
+				for ( var l = 2; l <= 6; l ++ ) {
+					let ligne =									document.createElement('tr');
+					for ( var c = 1; c < 6; c++ ) {
+						let cellule =								document.createElement('td');
+						let bouton =								document.createElement('button');
+						
+						bouton.value =								donnerParametreDynamique(2, l, c, 'code');
+						bouton.innerHTML =							donnerParametreDynamique(2, l, c, 'libelle');
+						
+						bouton.className =							'Bouton5';
+						bouton.onclick =							function() { actualiserFonction(this.value) }
+						cellule.append(bouton)
+						ligne.append(cellule)
+					}
+					table2.append(ligne)
+				}				
+				
+				let table3 =										document.getElementById('Fonctions3');
+				for ( var l = 0; l < FRACTALE.listeFonctions3.length; l ++ ) {
+					let ligne =									document.createElement('tr');
+					for ( var c = 0; c < FRACTALE.listeOperations.length; c++ ) {
+						let cellule =								document.createElement('td');
+						let bouton =								document.createElement('button');
+						
+						bouton.value =								donnerParametreDynamique(3, l, c, 'code');
+						bouton.innerHTML =							donnerParametreDynamique(3, l, c, 'libelle');
+						
+						bouton.className =							'Bouton4';
+						bouton.onclick =							function() { actualiserFonction(this.value) }
+						cellule.append(bouton)
+						ligne.append(cellule)
+					}
+					table3.append(ligne)
+				}
+				
+				let table4 =										document.getElementById('Fonctions4');
+				for ( var l = 0; l < FRACTALE.listeFonctions4.length; l ++ ) {
+					let ligne =									document.createElement('tr');
+					for ( var c = 0; c < FRACTALE.listeOperations.length; c++ ) {
+						let cellule =								document.createElement('td');
+						let bouton =								document.createElement('button');
+						
+						bouton.value =								donnerParametreDynamique(4, l, c, 'code');
+						bouton.innerHTML =							donnerParametreDynamique(4, l, c, 'libelle');
+						
+						bouton.className =							'Bouton4';
+						bouton.onclick =							function() { actualiserFonction(this.value) }
+						cellule.append(bouton)
+						ligne.append(cellule)
+					}
+					table4.append(ligne)
+				}
+				
+				changerTypeNuancier(FRACTALE.typeNuancier)
+				
+				let table12 =										document.getElementById('Nuancier2');
+				for ( var l = 1; l <= FRACTALE.nuancier5.length; l ++ ) {
+					let ligne =									document.createElement('tr');
+					for ( var c = 1; c <= FRACTALE.nuancier5.length; c++ ) {
+						let cellule =								document.createElement('td');
+						let bouton =								document.createElement('button');
+						
+						bouton.className =							'Bouton5';
+						bouton.innerHTML =							'M | J';
+						bouton.style.color =						FRACTALE.nuancier53[l - 1];
+						bouton.style.background =					FRACTALE.nuancier53[c - 1];
+						
+						bouton.value =								'2' + l.toString() + c.toString() + '0'
+						if ( c != l ) { bouton.onclick =				function() { actualiserNuancier(this.value) }	}
+						
+						cellule.append(bouton)
+						ligne.append(cellule)
+					}
+					table12.append(ligne)
+				}
+				
+				let table13 =										document.getElementById('Nuancier3');
+				for ( var l = 1; l <= FRACTALE.nuancier5.length; l ++ ) {
+					let ligne =									document.createElement('tr');
+					for ( var c = 0; c <= FRACTALE.nuancier5.length; c++ ) {
+						let cellule =								document.createElement('td');
+						let bouton =								document.createElement('button');
+						
+						bouton.className =							'Bouton6';
+						bouton.innerHTML =							'&bull;';
+						bouton.style.color =						FRACTALE.nuancier53[l - 1];
+						if ( c == 0 ) {bouton.style.background =		FRACTALE.nuancier53[l - 1]	}
+						else {		bouton.style.background =		FRACTALE.nuancier53[c - 1]	}
+						
+						if ( c == 0 ){ bouton.value =					'3' + l.toString() + '0'          + '0'			} 
+						else {         bouton.value =					'3' + '0'          + l.toString() + c.toString()	}
+						
+						if ( c != l ) {bouton.onclick =				function() { actualiserNuancier(this.value) }	}
+						
+						cellule.append(bouton)
+						ligne.append(cellule)
+					}
+					table13.append(ligne)
+				}
+				
+				actualiserInformations()
+				
+				actualiserFonctionStatique(0, 0, 0, 0)
+			}
+			
+			function actualiserFonction(codeFonction) {
+				FRACTALE.codeFonction =		codeFonction;
+				
+				lireCommandes()
+				
+				tracerFractale(FRACTALE.typeFonction, FRACTALE.codeFonction)
+				
+				actualiserInformations()
+			}
+			function actualiserFonctionStatique(typeFonction, argument1, argument2, argument3) {
+				if ( typeFonction != 0 ) { FRACTALE.typeFonction = typeFonction }
+				
+				switch ( typeFonction ) {
+				case 2:
+					if ( argument1 != 0 ) { FRACTALE.degre  = argument1 }
+					if ( argument2 != 0 ) { FRACTALE.degreC = argument2 }
+					break
+				case 3:
+				case 4:
+					if ( argument1 != 0 ) { FRACTALE.fonction   = argument1 }
+					if ( argument2 != 0 ) { FRACTALE.operationC = argument2 }
+					break
+				}
+				
+				switch ( argument3 ) {
+				case 1: FRACTALE.inversionC =   (FRACTALE.inversionC   == 1)?0:1; break
+				case 2: FRACTALE.conjugaison =  (FRACTALE.conjugaison  == 1)?0:1; break
+				case 3: FRACTALE.inversion =    (FRACTALE.inversion    == 1)?0:1; break
+				case 4: FRACTALE.conjugaisonC = (FRACTALE.conjugaisonC == 1)?0:1; break
+				}
+				
+				lireCommandes()
+				
+				tracerFractale(FRACTALE.typeFonction, FRACTALE.codeFonction)
+				
+				actualiserInformations()
+			}
+			function actualiserNuancier(codeNuancier) {
+				typeNuancier =				parseInt(codeNuancier.slice(0, 1));
+				
+				couleur1 =				parseInt(codeNuancier.slice(1, 2));
+				couleur2 =				parseInt(codeNuancier.slice(2, 3));
+				couleur3 =				parseInt(codeNuancier.slice(3, 4));
+				
+				if ( typeNuancier != 0 ) { FRACTALE.typeNuancier = typeNuancier }
+				
+				if ( ( typeNuancier != 0 ) && ( couleur1 != 0 ) ) { FRACTALE.couleurM = couleur1 - 1 }
+				
+				if ( ( typeNuancier != 0 ) && ( couleur2 != 0 ) ) { FRACTALE.couleurF = couleur2 - 1 }
+				
+				if ( ( typeNuancier == 3 ) && ( couleur3 != 0 ) ) { FRACTALE.couleurE = couleur3 - 1 }
+				
+				lireCommandes()
+				
+				tracerFractale(FRACTALE.typeFonction, FRACTALE.codeFonction)
+				
+				actualiserInformations()
+			}
+			function cliquer(evenement) {
+				lireCommandes()
+				
+				if ( !evenement.ctrlKey && !evenement.altKey  && !evenement.metaKey ) {
+					if ( FRACTALE.mandelbrot ) {
+						xMin =			FRACTALE.cxMin;
+						xMax =			FRACTALE.cxMax;
+						yMin =			FRACTALE.cyMin;
+						yMax =			FRACTALE.cyMax;
+					} else {
+						xMin =			FRACTALE.zxMin;
+						xMax =			FRACTALE.zxMax;
+						yMin =			FRACTALE.zyMin;
+						yMax =			FRACTALE.zyMax;
+					}
+					
+					xCentre =				xMin + ( xMax - xMin )*evenement.offsetX/FRACTALE.nombrePixels;
+					yCentre =				yMin + ( yMax - yMin )*evenement.offsetY/FRACTALE.nombrePixels;
+					
+					facteur =				(evenement.shiftKey)?FRACTALE.grossissement:(1/FRACTALE.grossissement);
+					largeur =				(xMax - xMin)*facteur;
+					hauteur =				(yMax - yMin)*facteur;
+					
+					if ( FRACTALE.mandelbrot ) {
+						FRACTALE.cxMin =	xCentre - largeur/2;
+						FRACTALE.cxMax =	xCentre + largeur/2;
+						FRACTALE.cyMin =	yCentre - hauteur/2;
+						FRACTALE.cyMax =	yCentre + hauteur/2;
+					} else {
+						FRACTALE.zxMin =	xCentre - largeur/2;
+						FRACTALE.zxMax =	xCentre + largeur/2;
+						FRACTALE.zyMin =	yCentre - hauteur/2;
+						FRACTALE.zyMax =	yCentre + hauteur/2;
+					}
+				}
+				if ( evenement.ctrlKey || evenement.metaKey || evenement.altKey ) {
+					if ( FRACTALE.mandelbrot ) {
+						FRACTALE.mandelbrot = false;
+						
+						FRACTALE.cxJulia =	FRACTALE.cxMin + ( FRACTALE.cxMax - FRACTALE.cxMin )*event.offsetX/FRACTALE.nombrePixels;
+						FRACTALE.cyJulia =	FRACTALE.cyMin + ( FRACTALE.cyMax - FRACTALE.cyMin )*event.offsetY/FRACTALE.nombrePixels;
+					} else {
+						FRACTALE.mandelbrot = true;
+					}
+				}
+				
+				tracerFractale(FRACTALE.typeFonction, FRACTALE.codeFonction)
+				
+				actualiserInformations()
+			}
+			
+			function actualiserInformations() {
+				var titre =				'Ensemble de ';
+				titre +=					FRACTALE.mandelbrot?'Mandelbrot':'Julia';
+				document.getElementById('Titre').innerHTML = titre;
+				
+				var message =				'';
+				var sautDeLigne =			'<br>';
+				
+				message =					'Fonction génératrice : ' + donnerParametre(FRACTALE.typeFonction, FRACTALE.codeFonction, 'libelle') + sautDeLigne;
+				message +=				sautDeLigne;
+				
+				if ( !FRACTALE.mandelbrot ) {
+					message +=			'cx = ' + FRACTALE.cxJulia + sautDeLigne;
+					message +=			'cy = ' + FRACTALE.cyJulia + sautDeLigne;
+					message +=			sautDeLigne;
+				}
+				
+				message +=				'Largeur de la zone de calcul : ';
+				message +=				FRACTALE.mandelbrot?FRACTALE.cxMin:FRACTALE.zxMin;
+				message +=				' < ';
+				message +=				FRACTALE.mandelbrot?'cx':'zx';
+				message +=				' < ';
+				message +=				FRACTALE.mandelbrot?FRACTALE.cxMax:FRACTALE.zxMax;
+				message +=				sautDeLigne
+				
+				message +=				'Hauteur de la zone de calcul : ';
+				message +=				FRACTALE.mandelbrot?FRACTALE.cyMin:FRACTALE.zyMin;
+				message +=				' < ';
+				message +=				FRACTALE.mandelbrot?'cy':'zy';
+				message +=				' < ';
+				message +=				FRACTALE.mandelbrot?FRACTALE.cyMax:FRACTALE.zyMax;
+				message +=				sautDeLigne
+
+				message +=				sautDeLigne
+				
+				message +=				'Temps de calcul : ' + FRACTALE.tempsCalcul + ' ms';
+				
+				document.getElementById('Informations').innerHTML = message;
+			}
+			
+			function lireCommandes() {
+				switch ( FRACTALE.typeFonction ) {
+				case 1:
+					FRACTALE.codeFonction =	document.querySelector('#Fonctions').value;
+					break
+				case 2:
+					FRACTALE.degre =		donnerParametre(FRACTALE.typeFonction, FRACTALE.codeFonction, 'degre');
+					FRACTALE.degreC =		donnerParametre(FRACTALE.typeFonction, FRACTALE.codeFonction, 'degreC');
+					break
+				case 3:
+				case 4:
+					FRACTALE.fonction =		donnerParametre(FRACTALE.typeFonction, FRACTALE.codeFonction, 'fonction');
+					FRACTALE.operationC =	donnerParametre(FRACTALE.typeFonction, FRACTALE.codeFonction, 'operationC');
+					break
+				}
+				
+				FRACTALE.rayonDivergence =	parseInt(document.querySelector('#Rayons').value);
+				FRACTALE.maximumIterations =	parseInt(document.querySelector('#Iterations').value);
+				FRACTALE.nombrePixels =		parseInt(document.querySelector('#Taille').value);
+				FRACTALE.grossissement =		parseInt(document.querySelector('#Grossissement').value);
+			}
+			
+			function changerTypeFonction(typeFonction) {
+				FRACTALE.typeFonction =		typeFonction;
+				
+				document.getElementById('TuileFonctions1').style.display = 'none';
+				document.getElementById('TuileFonctions2').style.display = 'none';
+				document.getElementById('TuileFonctions3').style.display = 'none';
+				document.getElementById('TuileFonctions4').style.display = 'none';
+				document.getElementById('TuileFonctions0').style.display = 'none';
+				
+				if ( FRACTALE.typeFonction == 1 ) {
+					document.getElementById('TypeFonction1').checked = 'checked'; 
+					document.getElementById('TuileFonctions1').style.display = 'block';
+				}
+				if ( FRACTALE.typeFonction == 2 ) {
+					document.getElementById('TypeFonction2').checked = 'checked'; 
+					document.getElementById('TuileFonctions2').style.display = 'block';
+					document.getElementById('TuileFonctions0').style.display = 'block';
+				}
+				if ( FRACTALE.typeFonction == 3 ) {
+					document.getElementById('TypeFonction3').checked = 'checked'; 
+					document.getElementById('TuileFonctions3').style.display = 'block';
+					document.getElementById('TuileFonctions0').style.display = 'block';
+				}
+				if ( FRACTALE.typeFonction == 4 ) {
+					document.getElementById('TypeFonction4').checked = 'checked'; 
+					document.getElementById('TuileFonctions4').style.display = 'block';
+					document.getElementById('TuileFonctions0').style.display = 'block';
+				}
+			}			
+			function changerTypeNuancier(typeNuancier) {
+				FRACTALE.typeNuancier =		typeNuancier;
+				
+				document.getElementById('TuileNuanciers2').style.display = 'none';
+				document.getElementById('TuileNuanciers3').style.display = 'none';
+				
+				if ( FRACTALE.typeNuancier == 1 ) {
+					document.getElementById('TypeNuancier1').checked = 'checked';
+					
+					actualiserNuancier('1000')
+				}
+				if ( FRACTALE.typeNuancier == 2 ) {
+					document.getElementById('TypeNuancier2').checked = 'checked';
+					document.getElementById('TuileNuanciers2').style.display = 'block';
+				}
+				if ( FRACTALE.typeNuancier == 3 ) {
+					document.getElementById('TypeNuancier3').checked = 'checked';
+					document.getElementById('TuileNuanciers3').style.display = 'block';
+				}
+			}
+		</script>
+	</head>
+	
+	<body                                                                      onload='initialiserInterface()'>
+		<div class='Bloc'                                  id='Figure'>
+			<canvas                                       id='Canevas'       onmousedown='cliquer(event)'></canvas>
+		</div>
+		
+		<div class='Bloc' id='Commandes'>
+			<h2 class='Titre' id='Titre'>Ensemble de Mandelbrot</h2>
+			
+			<fieldset>
+				<div id='Informations'></div>
+			</fieldset>
+			
+			<fieldset>
+				<legend>Fonctions</legend>
+				
+				<form>
+				<input type='radio'  name='TypeFonction' id='TypeFonction1' onchange='changerTypeFonction(1)'>. diverses</input>
+				<input type='radio'  name='TypeFonction' id='TypeFonction2' onchange='changerTypeFonction(2)'>. polynomiales</input>
+				<input type='radio'  name='TypeFonction' id='TypeFonction3' onchange='changerTypeFonction(3)'>. trigonométriques</input>
+				<input type='radio'  name='TypeFonction' id='TypeFonction4' onchange='changerTypeFonction(4)'>. hyperboliques</input>
+				</form>
+				<div                 class='Tuile'       id='TuileFonctions1'>
+					<select         class='Menu'        id='Fonctions'     onchange='actualiserFonctionStatique(0, 0, 0, 0)'></select>
+				</div>
+				<div                 class='Tuile'       id='TuileFonctions2'>
+					<table                              id='Fonctions2'></table>
+				</div>
+				<div                 class='Tuile'       id='TuileFonctions3'>
+					<table                              id='Fonctions3'></table>
+				</div>
+				<div                 class='Tuile'       id='TuileFonctions4'>
+					<table                              id='Fonctions4'></table>
+				</div>
+				<div                 class='Tuile'       id='TuileFonctions0'>
+					<table>
+						<tr>
+							<td><button class='Bouton4' onclick='actualiserFonctionStatique(0, 0, 0, 1)'>c &#8614; 1/c</button></td>
+							<td><button class='Bouton4' onclick='actualiserFonctionStatique(0, 0, 0, 2)'>z &#8614; z*</button></td>
+							<td><button class='Bouton4' onclick='actualiserFonctionStatique(0, 0, 0, 3)'>z &#8614; 1/z</button></td>
+							<td><button class='Bouton4' onclick='actualiserFonctionStatique(0, 0, 0, 4)'>c &#8614; c*</button></td>
+						</tr>
+					</table>
+				</div>
+			</fieldset>
+			
+			<fieldset>
+				<legend>Paramètres</legend>
+				
+				<input type='number' class='MenuEntiers' id='Rayons'        onchange='actualiserFonctionStatique(0, 0, 0, 0)'></input>
+				<label>Rayon de convergence</label>
+				<br>
+				
+				<input type='number' class='MenuEntiers' id='Iterations'    onchange='actualiserFonctionStatique(0, 0, 0, 0)'></input>
+				<label>Maximum d'it&eacute;rations <i>Précision</i></label>
+				<br>
+				
+				<input type='number' class='MenuEntiers' id='Taille'        onchange='actualiserFonctionStatique(0, 0, 0, 0)'></input>
+				<label>Nombre de pixels <i>Taille</i></label>
+				<br>
+				
+				<input type='number' class='MenuEntiers' id='Grossissement'></input>
+				<label>Facteur de grossissement</label>
+			</fieldset>
+			
+			<fieldset>
+				<legend>Nuanciers</legend>
+				
+				<form>
+				<input type='radio'  name='TypeNuancier' id='TypeNuancier1' onchange='changerTypeNuancier(1)'>. cycliques</input>
+				<input type='radio'  name='TypeNuancier' id='TypeNuancier2' onchange='changerTypeNuancier(2)'>. bicolores</input>
+				<input type='radio'  name='TypeNuancier' id='TypeNuancier3' onchange='changerTypeNuancier(3)'>. tricolores</input>
+				</form>
+				<div                 class='Tuile'       id='TuileNuanciers2'>
+					<table                              id='Nuancier2'></table>
+				</div>
+				<div                 class='Tuile'       id='TuileNuanciers3'>
+					<table                              id='Nuancier3'></table>
+				</div>
+			</fieldset>
+			
+			<fieldset>
+				<legend>Navigation</legend>
+				
+				Réduire la zone de calcul : Clic sur un point<br>
+				Agrandir la zone de calcul : MAJ + Clic sur un point<br>
+				Tracer un ensemble de Julia : CTRL + Clic sur un point
+			</fieldset>
+		</div>
+	</body>
+</html>
